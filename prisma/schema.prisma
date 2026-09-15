@@ -1,0 +1,188 @@
+// Prisma schema for SkillPath AI
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String          @id @default(cuid())
+  email     String?         @unique
+  name      String          @default("Vi")
+  avatar    String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  profile   StudentProfile?
+}
+
+model StudentProfile {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  education         String             // e.g. "2nd Year B.Tech"
+  degree            String             // e.g. "AI & Data Science"
+  targetCareerId    String?
+  targetCareer      Career?            @relation(fields: [targetCareerId], references: [id])
+  customCareer      String?
+  experienceLevel   String             // Beginner, Intermediate, Advanced
+  weeklyStudyHours  Int                @default(10)
+  careerReadiness   Float              @default(0.0) // 0.0 - 100.0
+  initialReadiness  Float              @default(42.0)
+  targetReadiness   Float              @default(90.0)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  skills            StudentSkill[]
+  skillGaps         SkillGap[]
+  roadmaps          Roadmap[]
+  progressLogs      LearningProgress[]
+  recommendations   Recommendation[]
+}
+
+model Skill {
+  id               String         @id @default(cuid())
+  name             String         @unique
+  category         String         // Programming, Math & Stats, ML & AI, Data Engineering, Tools & DevOps, Core CS, Soft Skills
+  description      String
+  whyItMatters     String
+  prerequisites    String         // JSON array of skill names or comma separated
+  whatToLearn      String         // JSON array of module steps
+  recommendedProject String
+  estimatedHours   Int            @default(15)
+  difficulty       String         // Beginner, Intermediate, Advanced
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  studentSkills    StudentSkill[]
+  careerSkills     CareerSkill[]
+  skillGaps        SkillGap[]
+  roadmapItems     RoadmapItem[]
+}
+
+model StudentSkill {
+  id               String         @id @default(cuid())
+  profileId        String
+  profile          StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skillId          String
+  skill            Skill          @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  level            String         // Beginner, Intermediate, Advanced
+  isVerified       Boolean        @default(false)
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([profileId, skillId])
+}
+
+model Career {
+  id               String          @id @default(cuid())
+  slug             String          @unique
+  title            String          // e.g. "Data Scientist"
+  description      String
+  category         String          // e.g. "Data & AI", "Software Engineering", "Cloud & Security"
+  averageSalary    String          // e.g. "$120,000 - $160,000"
+  demandLevel      String          // e.g. "Very High", "High"
+  difficulty       String          // e.g. "Challenging", "Intermediate"
+  icon             String          // Icon identifier name
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  skills           CareerSkill[]
+  profiles         StudentProfile[]
+  roadmaps         Roadmap[]
+}
+
+model CareerSkill {
+  id               String   @id @default(cuid())
+  careerId         String
+  career           Career   @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  skillId          String
+  skill            Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  requiredLevel    String   // Beginner, Intermediate, Advanced
+  priority         String   // Critical, High, Medium, Low
+  phase            Int      @default(1) // 1 = Foundations, 2 = Core, 3 = Domain, 4 = Advanced, 5 = Capstone
+  phaseName        String   @default("Foundations")
+  order            Int      @default(1)
+
+  @@unique([careerId, skillId])
+}
+
+model SkillGap {
+  id               String         @id @default(cuid())
+  profileId        String
+  profile          StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skillId          String
+  skill            Skill          @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  currentLevel     String         // None, Beginner, Intermediate, Advanced
+  requiredLevel    String         // Beginner, Intermediate, Advanced
+  gapLevel         String         // None, Low, Moderate, High, Critical
+  status           String         // Strong (Green), Developing (Yellow), Missing (Red)
+  priority         String         // Critical, High, Medium, Low
+  prerequisitesMet Boolean        @default(true)
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([profileId, skillId])
+}
+
+model Roadmap {
+  id               String         @id @default(cuid())
+  profileId        String
+  profile          StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  careerId         String?
+  career           Career?        @relation(fields: [careerId], references: [id])
+  title            String
+  totalHours       Int            @default(120)
+  completedHours   Int            @default(0)
+  status           String         @default("Active") // Active, Completed, Archived
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  items            RoadmapItem[]
+}
+
+model RoadmapItem {
+  id               String      @id @default(cuid())
+  roadmapId        String
+  roadmap          Roadmap     @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  skillId          String
+  skill            Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  phase            Int         // 1 to 5
+  phaseName        String      // Foundations, Core, Domain, Advanced, Career Ready
+  order            Int         @default(1)
+  status           String      @default("Not Started") // Not Started, Learning, Completed
+  estimatedHours   Int         @default(10)
+  priority         String      @default("High")
+  completedAt      DateTime?
+
+  @@unique([roadmapId, skillId])
+}
+
+model LearningProgress {
+  id               String         @id @default(cuid())
+  profileId        String
+  profile          StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  date             DateTime       @default(now())
+  readinessScore   Float
+  skillsCompleted  Int
+  skillsInProgress Int
+  skillsRemaining  Int
+  hoursSpent       Float          @default(0.0)
+  notes            String?
+}
+
+model Recommendation {
+  id               String         @id @default(cuid())
+  profileId        String
+  profile          StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  type             String         // NextSkill, Project, WeeklyGoal, CareerTip
+  title            String
+  description      String
+  reason           String
+  estimatedTime    String?
+  priority         String         @default("High")
+  actionUrl        String?
+  isActioned       Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+}
